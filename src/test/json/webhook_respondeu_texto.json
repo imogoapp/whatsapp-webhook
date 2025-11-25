@@ -1,0 +1,36 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "540772902459348",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "556181412286",
+              "phone_number_id": "524386454098961"
+            },
+            "contacts": [
+              { "profile": { "name": "Juca" }, "wa_id": "556184634855" }
+            ],
+            "messages": [
+              {
+                "context": {
+                  "from": "556181412286",
+                  "id": "wamid.HBgMNTU2MTg0NjM0ODU1FQIAERgSMzU4QTcwODQ0OTU2NTIxOTQwAA=="
+                },
+                "from": "556184634855",
+                "id": "wamid.HBgMNTU2MTg0NjM0ODU1FQIAEhgWM0VCMDQ4NDMwNzcxMDZCM0QwOUNDRQA=",
+                "timestamp": "1764076979",
+                "text": { "body": "ok (respondeu uma mensagem)" },
+                "type": "text"
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

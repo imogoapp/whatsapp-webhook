@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "message_id": "wamid.HBgMNTU2MTg0NjM0ODU1FQIAERgSMkU2N0MxNjVDQTE2ODVDRDBCAA==",
+  "response": {
+    "messaging_product": "whatsapp",
+    "contacts": [
+      {
+        "input": "556184634855",
+        "wa_id": "556184634855"
+      }
+    ],
+    "messages": [
+      {
+        "id": "wamid.HBgMNTU2MTg0NjM0ODU1FQIAERgSMkU2N0MxNjVDQTE2ODVDRDBCAA=="
+      }
+    ]
+  }
+}

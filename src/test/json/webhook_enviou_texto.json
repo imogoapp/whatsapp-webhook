@@ -1,0 +1,32 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "582887278238937",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15551730533",
+              "phone_number_id": "575721445622447"
+            },
+            "contacts": [
+              { "profile": { "name": "imogo" }, "wa_id": "556181500586" }
+            ],
+            "messages": [
+              {
+                "from": "556181500586",
+                "id": "wamid.HBgMNTU2MTgxNTAwNTg2FQIAEhgWM0VCMEQwRTAyRjFERTgxODRFODJCNAA=",
+                "timestamp": "1764011389",
+                "text": { "body": "Oi" },
+                "type": "text"
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}
