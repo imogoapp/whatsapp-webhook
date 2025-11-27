@@ -24,4 +24,24 @@ Banco de dados do MySQL
     - phone_number_id 
     - webhook_verify_token 
     - meta_token
-
+    - organization_id
+- organization
+    - id 
+    - create_in 
+    - activate # true or false
+    - create_by # id_user
+    - organization_name
+- users
+    - id
+    - name 
+    - create_in
+    - email 
+    - password
+    - activate
+- organization_users
+    - id
+    - organization_id
+    - user_id
+    - create_in
+    - role # user / user_admin / user_creator 
+    - activate # true

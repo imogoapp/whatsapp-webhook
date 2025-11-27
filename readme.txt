@@ -71,3 +71,62 @@ Banco de dados do MySQL
     - phone_number_id 
     - webhook_verify_token 
     - meta_token
+
+
+$ 27/11/2025
+Novas rotas e melhoria no fluxo
+
+Lógica do sistema:
+[ ] Webhook
+[ ] Filter 
+[ ] BOT
+[ ] AI 
+[ ] Flow
+
+Banco de dados atualizado: 
+
+[whatsapp_db_webhook]
+
+- webhook
+    - id 
+    - date 
+    - json 
+- contacts
+    - id 
+    - wa_id 
+    - profile # (human, bot, ia) 
+    - name 
+    - create_in
+    - activate_bot # true or false
+    - activate_automatic_message # true or false
+    - create_for_phone_number 
+    - last_message_timestamp
+- settings
+    - id
+    - default_bot
+    - default_profile # human
+    - wa_id
+    - phone_number_id 
+    - webhook_verify_token 
+    - meta_token
+    - organization_id
+- organization
+    - id 
+    - create_in 
+    - activate # true or false
+    - create_by # id_user
+    - organization_name
+- users
+    - id
+    - name 
+    - create_in
+    - email 
+    - password
+    - activate
+- organization_users
+    - id
+    - organization_id
+    - user_id
+    - create_in
+    - role # user / user_admin / user_creator 
+    - activate # true
