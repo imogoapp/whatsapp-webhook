@@ -130,3 +130,8 @@ Banco de dados atualizado:
     - create_in
     - role # user / user_admin / user_creator 
     - activate # true
+
+$ 04/12/2025
+- Melhoria no banco de dados 
+- Criação de novas rotas 
+- implementação do websocket

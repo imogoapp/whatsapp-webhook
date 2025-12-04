@@ -5,6 +5,9 @@ from src.routers.ping import router as ping_router
 from src.routers.users import router as users_router
 from src.routers.organization import router as org_router
 from src.routers.auth import router as auth_router
+from src.routers.contacts import router as contacts_router
+from src.routers.chat import router as chat_router
+from src.routers.ws import router as ws_router
 from src.db.storage import db
 
 # CORS
@@ -46,6 +49,9 @@ app.include_router(ping_router)
 app.include_router(users_router)
 app.include_router(org_router)
 app.include_router(auth_router)
+app.include_router(contacts_router)
+app.include_router(chat_router)
+app.include_router(ws_router)
 
 @app.get("/", tags=["Sistema"])
 def read_root():

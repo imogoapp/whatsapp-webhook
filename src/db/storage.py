@@ -231,6 +231,32 @@ class DatabaseStorage:
                 """, (None, 'human', '556181412286', '524386454098961', '7b5a67574d8b1d77d2803b24946950f0', meta_token, org_id))
                 print(f"✓ Configuração padrão inserida e vinculada à organização ID: {org_id}")
             
+            # Tabela chat_session_message
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS chat_session_message (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    wa_id VARCHAR(50) NOT NULL COMMENT 'wa_id de quem enviou a mensagem',
+                    wa_id_received VARCHAR(50) NOT NULL COMMENT 'wa_id de quem recebeu a mensagem',
+                    phone_number_id VARCHAR(50) NOT NULL COMMENT 'ID do número da conversa (settings)',
+                    session_id VARCHAR(36) NOT NULL COMMENT 'UUID da sessão (24h)',
+                    flow_state JSON DEFAULT NULL COMMENT 'Status do flow se aplicável',
+                    message_status VARCHAR(50) DEFAULT 'sent' COMMENT 'sent, delivered, read, failed',
+                    is_user_message BOOLEAN DEFAULT TRUE COMMENT 'Se a mensagem foi enviada pelo usuário',
+                    bot_replied BOOLEAN DEFAULT FALSE COMMENT 'Se a mensagem foi respondida pelo BOT',
+                    content TEXT NOT NULL COMMENT 'Conteúdo da mensagem',
+                    payload JSON NOT NULL COMMENT 'Payload completo da API',
+                    create_in DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'Quando a mensagem foi criada',
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Quando foi atualizada',
+                    expires_at DATETIME NOT NULL COMMENT 'Quando a sessão expira (24h)',
+                    is_active BOOLEAN DEFAULT TRUE COMMENT 'Se a sessão está ativa',
+                    INDEX idx_session (session_id),
+                    INDEX idx_wa_ids (wa_id, wa_id_received),
+                    INDEX idx_phone (phone_number_id),
+                    INDEX idx_active (is_active, expires_at)
+                )
+            """)
+            print("✓ Tabela 'chat_session_message' verificada/criada")
+            
             conn.commit()
             cursor.close()
             conn.close()
@@ -368,6 +394,147 @@ class DatabaseStorage:
             print(f"Erro ao salvar/atualizar contato: {e}")
             return False
 
+    def get_contacts_by_phone_number(self, phone_number_id: str, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+        """Busca contatos por settings (create_for_phone_number)"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return []
+            
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT * FROM contacts 
+                WHERE create_for_phone_number = %s 
+                ORDER BY last_message_timestamp DESC
+                LIMIT %s OFFSET %s
+            """, (phone_number_id, limit, skip))
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            return rows
+        except Error as e:
+            print(f"Erro ao buscar contatos: {e}")
+            return []
+
+    def get_contact(self, contact_id: int) -> Optional[Dict[str, Any]]:
+        """Busca um contato pelo ID"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return None
+            
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+            contact = cur.fetchone()
+            cur.close()
+            conn.close()
+            return contact
+        except Error as e:
+            print(f"Erro ao buscar contato: {e}")
+            return None
+
+    def update_contact_name(self, contact_id: int, name: str) -> Dict[str, Any]:
+        """Atualiza o nome do contato"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return {"success": False, "message": "Erro ao conectar ao banco de dados"}
+            
+            cur = conn.cursor(dictionary=True)
+            
+            # Verifica se contato existe
+            cur.execute("SELECT id FROM contacts WHERE id = %s", (contact_id,))
+            if not cur.fetchone():
+                cur.close()
+                conn.close()
+                return {"success": False, "message": f"Contato ID {contact_id} não encontrado"}
+            
+            # Atualiza nome
+            cur.execute("UPDATE contacts SET name = %s WHERE id = %s", (name, contact_id))
+            conn.commit()
+            
+            # Retorna contato atualizado
+            cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+            contact = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            return {"success": True, "message": "Nome atualizado com sucesso", "data": contact}
+        except Error as e:
+            print(f"Erro ao atualizar nome do contato: {e}")
+            return {"success": False, "message": f"Erro: {str(e)}"}
+
+    def set_contact_automatic_message(self, contact_id: int, activate: bool) -> Dict[str, Any]:
+        """Ativa/Desativa mensagem automática"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return {"success": False, "message": "Erro ao conectar ao banco de dados"}
+            
+            cur = conn.cursor(dictionary=True)
+            
+            # Verifica se contato existe
+            cur.execute("SELECT id FROM contacts WHERE id = %s", (contact_id,))
+            if not cur.fetchone():
+                cur.close()
+                conn.close()
+                return {"success": False, "message": f"Contato ID {contact_id} não encontrado"}
+            
+            # Atualiza status
+            cur.execute(
+                "UPDATE contacts SET activate_automatic_message = %s WHERE id = %s",
+                (activate, contact_id)
+            )
+            conn.commit()
+            
+            # Retorna contato atualizado
+            cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+            contact = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            status = "ativada" if activate else "desativada"
+            return {"success": True, "message": f"Mensagem automática {status}", "data": contact}
+        except Error as e:
+            print(f"Erro ao atualizar mensagem automática: {e}")
+            return {"success": False, "message": f"Erro: {str(e)}"}
+
+    def set_contact_bot(self, contact_id: int, activate: bool) -> Dict[str, Any]:
+        """Ativa/Desativa bot do contato"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return {"success": False, "message": "Erro ao conectar ao banco de dados"}
+            
+            cur = conn.cursor(dictionary=True)
+            
+            # Verifica se contato existe
+            cur.execute("SELECT id FROM contacts WHERE id = %s", (contact_id,))
+            if not cur.fetchone():
+                cur.close()
+                conn.close()
+                return {"success": False, "message": f"Contato ID {contact_id} não encontrado"}
+            
+            # Atualiza status e profile
+            profile = 'bot' if activate else 'human'
+            cur.execute(
+                "UPDATE contacts SET activate_bot = %s, profile = %s WHERE id = %s",
+                (activate, profile, contact_id)
+            )
+            conn.commit()
+            
+            # Retorna contato atualizado
+            cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+            contact = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            status = "ativado" if activate else "desativado"
+            return {"success": True, "message": f"Bot {status}", "data": contact}
+        except Error as e:
+            print(f"Erro ao atualizar bot do contato: {e}")
+            return {"success": False, "message": f"Erro: {str(e)}"}
+
     # ==================== SETTINGS ====================
     
     def get_settings(self, phone_number_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -448,6 +615,24 @@ class DatabaseStorage:
         except Error as e:
             print(f"Erro ao desativar organização: {e}")
             return None
+    
+    def activate_organization(self, org_id: int) -> Optional[Dict[str, Any]]:
+        """Ativa organização"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return None
+            cur = conn.cursor(dictionary=True)
+            cur.execute("UPDATE organization SET activate = TRUE WHERE id = %s", (org_id,))
+            conn.commit()
+            cur.execute("SELECT * FROM organization WHERE id = %s", (org_id,))
+            org = cur.fetchone()
+            cur.close()
+            conn.close()
+            return org
+        except Error as e:
+            print(f"Erro ao ativar organização: {e}")
+            return None
 
     def update_organization_name(self, org_id: int, new_name: str) -> Optional[Dict[str, Any]]:
         """Atualiza nome da organização"""
@@ -466,91 +651,6 @@ class DatabaseStorage:
         except Error as e:
             print(f"Erro ao atualizar nome da organização: {e}")
             return None
-
-    # ==================== ORGANIZATION USERS ====================
-    # def add_user_to_organization(self, organization_id: int, user_id: int, role: str = 'user') -> bool:
-    #     """Vincula um usuário à organização com um papel."""
-    #     try:
-    #         if role not in ('user', 'user_admin', 'user_creator'):
-    #             role = 'user'
-    #         conn = self._get_connection()
-    #         if not conn:
-    #             return False
-    #         cursor = conn.cursor()
-    #         cursor.execute("""
-    #             INSERT IGNORE INTO organization_users (organization_id, user_id, role, activate)
-    #             VALUES (%s, %s, %s, %s)
-    #         """, (organization_id, user_id, role, True))
-    #         conn.commit()
-    #         cursor.close()
-    #         conn.close()
-    #         return True
-    #     except Error as e:
-    #         print(f"Erro ao vincular usuário à organização: {e}")
-    #         return False
-
-    # def remove_user_from_organization(self, organization_id: int, user_id: int) -> bool:
-    #     """Remove vínculo usuário-organização"""
-    #     try:
-    #         conn = self._get_connection()
-    #         if not conn:
-    #             return False
-    #         cur = conn.cursor()
-    #         cur.execute("DELETE FROM organization_users WHERE organization_id = %s AND user_id = %s",
-    #                     (organization_id, user_id))
-    #         conn.commit()
-    #         cur.close()
-    #         conn.close()
-    #         return True
-    #     except Error as e:
-    #         print(f"Erro ao remover usuário da organização: {e}")
-    #         return False
-
-    # def update_organization_user_role(self, organization_id: int, user_id: int, role: str) -> Optional[Dict[str, Any]]:
-    #     """Atualiza o papel do usuário na organização"""
-    #     try:
-    #         if role not in ('user', 'user_admin', 'user_creator'):
-    #             return None
-    #         conn = self._get_connection()
-    #         if not conn:
-    #             return None
-    #         cur = conn.cursor(dictionary=True)
-    #         cur.execute("""
-    #             UPDATE organization_users SET role = %s WHERE organization_id = %s AND user_id = %s
-    #         """, (role, organization_id, user_id))
-    #         conn.commit()
-    #         cur.execute("""
-    #             SELECT * FROM organization_users WHERE organization_id = %s AND user_id = %s
-    #         """, (organization_id, user_id))
-    #         row = cur.fetchone()
-    #         cur.close()
-    #         conn.close()
-    #         return row
-    #     except Error as e:
-    #         print(f"Erro ao atualizar role do usuário: {e}")
-    #         return None
-
-    # def set_organization_user_active(self, organization_id: int, user_id: int, active: bool) -> Optional[Dict[str, Any]]:
-    #     """Ativa/Desativa o vínculo do usuário com a organização"""
-    #     try:
-    #         conn = self._get_connection()
-    #         if not conn:
-    #             return None
-    #         cur = conn.cursor(dictionary=True)
-    #         cur.execute("""
-    #             UPDATE organization_users SET activate = %s WHERE organization_id = %s AND user_id = %s
-    #         """, (active, organization_id, user_id))
-    #         conn.commit()
-    #         cur.execute("""
-    #             SELECT * FROM organization_users WHERE organization_id = %s AND user_id = %s
-    #         """, (organization_id, user_id))
-    #         row = cur.fetchone()
-    #         cur.close()
-    #         conn.close()
-    #         return row
-    #     except Error as e:
-    #         print(f"Erro ao atualizar ativação do usuário na organização: {e}")
-    #         return None
 
     def list_organization_users(self, organization_id: int) -> List[Dict[str, Any]]:
         """Lista usuários vinculados a uma organização."""
@@ -1064,6 +1164,272 @@ class DatabaseStorage:
         except Error as e:
             print(f"Erro ao autenticar usuário: {e}")
             return None
+
+    # ==================== CHAT SESSION MESSAGE ====================
+    
+    def get_active_session(self, wa_id: str, wa_id_received: str, phone_number_id: str) -> Optional[Dict[str, Any]]:
+        """Busca sessão ativa (última mensagem não expirada)"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return None
+            
+            cur = conn.cursor(dictionary=True)
+            
+            # Busca última mensagem da conversa
+            cur.execute("""
+                SELECT * FROM chat_session_message
+                WHERE wa_id = %s 
+                  AND wa_id_received = %s 
+                  AND phone_number_id = %s
+                  AND is_active = TRUE
+                ORDER BY create_in DESC
+                LIMIT 1
+            """, (wa_id, wa_id_received, phone_number_id))
+            
+            last_message = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if not last_message:
+                return None
+            
+            # Verifica se sessão expirou
+            if datetime.now() > last_message['expires_at']:
+                # Marca como inativa
+                self.deactivate_session(last_message['session_id'])
+                return None
+            
+            return last_message
+            
+        except Error as e:
+            print(f"Erro ao buscar sessão ativa: {e}")
+            return None
+
+    def create_session_message(
+        self,
+        wa_id: str,
+        wa_id_received: str,
+        phone_number_id: str,
+        content: str,
+        payload: Dict[str, Any],
+        is_user_message: bool = True,
+        message_status: str = 'sent'
+    ) -> Optional[Dict[str, Any]]:
+        """Cria nova mensagem na sessão (cria sessão se necessário)"""
+        try:
+            import uuid
+            from datetime import timedelta
+            
+            conn = self._get_connection()
+            if not conn:
+                return None
+            
+            cur = conn.cursor(dictionary=True)
+            
+            # Verifica se existe sessão ativa
+            active_session = self.get_active_session(wa_id, wa_id_received, phone_number_id)
+            
+            if active_session:
+                # Usa sessão existente
+                session_id = active_session['session_id']
+                print(f"✓ Usando sessão existente: {session_id}")
+            else:
+                # Cria nova sessão
+                session_id = str(uuid.uuid4())
+                print(f"✓ Nova sessão criada: {session_id}")
+            
+            # Calcula expiração (24h a partir de agora)
+            expires_at = datetime.now() + timedelta(hours=24)
+            
+            # Insere mensagem
+            cur.execute("""
+                INSERT INTO chat_session_message 
+                (wa_id, wa_id_received, phone_number_id, session_id, content, payload, 
+                 is_user_message, message_status, expires_at, is_active)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                wa_id,
+                wa_id_received,
+                phone_number_id,
+                session_id,
+                content,
+                json.dumps(payload),
+                is_user_message,
+                message_status,
+                expires_at,
+                True
+            ))
+            
+            message_id = cur.lastrowid
+            conn.commit()
+            
+            # Busca mensagem criada
+            cur.execute("SELECT * FROM chat_session_message WHERE id = %s", (message_id,))
+            message = cur.fetchone()
+            
+            cur.close()
+            conn.close()
+            
+            print(f"  └─ Mensagem ID {message_id} salva na sessão")
+            print(f"  └─ Expira em: {expires_at.strftime('%d/%m/%Y %H:%M:%S')}")
+            
+            return message
+            
+        except Error as e:
+            print(f"Erro ao criar mensagem na sessão: {e}")
+            return None
+
+    def deactivate_session(self, session_id: str) -> bool:
+        """Desativa todas as mensagens de uma sessão"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return False
+            
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE chat_session_message 
+                SET is_active = FALSE 
+                WHERE session_id = %s
+            """, (session_id,))
+            conn.commit()
+            
+            rows_affected = cur.rowcount
+            cur.close()
+            conn.close()
+            
+            print(f"✓ Sessão {session_id} desativada ({rows_affected} mensagens)")
+            return True
+            
+        except Error as e:
+            print(f"Erro ao desativar sessão: {e}")
+            return False
+
+    def get_session_messages(self, session_id: str) -> List[Dict[str, Any]]:
+        """Lista todas as mensagens de uma sessão"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return []
+            
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT * FROM chat_session_message
+                WHERE session_id = %s
+                ORDER BY create_in ASC
+            """, (session_id,))
+            
+            messages = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            return messages
+            
+        except Error as e:
+            print(f"Erro ao buscar mensagens da sessão: {e}")
+            return []
+
+    def update_message_status(self, message_id: int, status: str) -> bool:
+        """Atualiza status da mensagem (sent, delivered, read, failed)"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return False
+            
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE chat_session_message 
+                SET message_status = %s 
+                WHERE id = %s
+            """, (status, message_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return True
+            
+        except Error as e:
+            print(f"Erro ao atualizar status da mensagem: {e}")
+            return False
+
+    def mark_bot_replied(self, message_id: int) -> bool:
+        """Marca que o bot respondeu a mensagem"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return False
+            
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE chat_session_message 
+                SET bot_replied = TRUE 
+                WHERE id = %s
+            """, (message_id,))
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return True
+            
+        except Error as e:
+            print(f"Erro ao marcar bot replied: {e}")
+            return False
+
+    def update_flow_state(self, message_id: int, flow_state: Dict[str, Any]) -> bool:
+        """Atualiza o estado do flow"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return False
+            
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE chat_session_message 
+                SET flow_state = %s 
+                WHERE id = %s
+            """, (json.dumps(flow_state), message_id))
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return True
+            
+        except Error as e:
+            print(f"Erro ao atualizar flow state: {e}")
+            return False
+
+    def get_user_sessions(self, wa_id: str, phone_number_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Lista últimas sessões do usuário"""
+        try:
+            conn = self._get_connection()
+            if not conn:
+                return []
+            
+            cur = conn.cursor(dictionary=True)
+            cur.execute("""
+                SELECT DISTINCT session_id, wa_id, wa_id_received, phone_number_id,
+                       MIN(create_in) as session_start,
+                       MAX(create_in) as last_message,
+                       MAX(expires_at) as expires_at,
+                       MAX(is_active) as is_active,
+                       COUNT(*) as message_count
+                FROM chat_session_message
+                WHERE wa_id = %s AND phone_number_id = %s
+                GROUP BY session_id, wa_id, wa_id_received, phone_number_id
+                ORDER BY last_message DESC
+                LIMIT %s
+            """, (wa_id, phone_number_id, limit))
+            
+            sessions = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            return sessions
+            
+        except Error as e:
+            print(f"Erro ao buscar sessões do usuário: {e}")
+            return []
 
 # Instância global
 db = DatabaseStorage()

@@ -62,6 +62,14 @@ def deactivate_organization(org_id: int):
         raise HTTPException(status_code=404, detail="Organização não encontrada")
     return {"success": True, "message": f"Organização ID {org_id} desativada", "data": org}
 
+@router.patch("/{org_id}/activate")
+def activate_organization_router(org_id: int):
+    """Ativa uma organização"""
+    org = db.activate_organization(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organização não encontrada")
+    return {"success": True, "message": f"Organização ID {org_id} ativada", "data": org}
+
 @router.patch("/{org_id}/name")
 def rename_organization(org_id: int, payload: OrgRename):
     """Atualiza o nome da organização"""
